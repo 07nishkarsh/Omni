@@ -1,0 +1,83 @@
+{
+  "applicants": {
+    "APP-001": {
+      "name": "Priya Sharma",
+      "email": "priya.sharma@sandbox.mockbank.example.com",
+      "mock_credit_score": 760,
+      "mock_annual_income": "85000.00",
+      "notes": "Clean applicant. No tax flags. Standard subsidy loan candidate.",
+      "tags": ["clean"]
+    },
+    "APP-002": {
+      "name": "Rajan Mehta",
+      "email": "rajan.mehta@sandbox.mockbank.example.com",
+      "mock_credit_score": 640,
+      "mock_annual_income": "42000.00",
+      "notes": "Flagged applicant. Unresolved 2-year tax dispute on record.",
+      "tags": ["flagged"]
+    },
+    "APP-003": {
+      "name": "Aisha Verma",
+      "email": "aisha.verma@sandbox.mockbank.example.com",
+      "mock_credit_score": 700,
+      "mock_annual_income": "58000.00",
+      "notes": "Flagged applicant with guarantor: Suresh Verma. Guarantor offsets risk veto.",
+      "tags": ["flagged", "guarantor"],
+      "guarantor": "Suresh Verma"
+    },
+    "APP-004": {
+      "name": "Mohan Das",
+      "email": "mohan.das@sandbox.mockbank.example.com",
+      "mock_credit_score": 720,
+      "mock_annual_income": "70000.00",
+      "notes": "Rural applicant. Triggers insufficient-fund scenario (≤5000 available).",
+      "tags": ["insufficient"]
+    },
+    "APP-005": {
+      "name": "Kavya Nair",
+      "email": "kavya.nair@sandbox.mockbank.example.com",
+      "mock_credit_score": 800,
+      "mock_annual_income": "120000.00",
+      "notes": "Emergency payout applicant. Routed A->C. Targets frozen fund to force human-review path.",
+      "tags": ["clean", "emergency"]
+    }
+  },
+  "trigger_defaults": {
+    "subsidy_loan": {
+      "transaction_type": "loan_application",
+      "requested_amount": "25000.00",
+      "currency": "INR",
+      "urgency_flag": "normal",
+      "requested_subsidy_pct": 15.0,
+      "target_fund": "general",
+      "description": "Standard subsidy loan — serial flow A->B->C."
+    },
+    "emergency_payout": {
+      "transaction_type": "loan_application",
+      "requested_amount": "45000.00",
+      "currency": "INR",
+      "urgency_flag": "disaster",
+      "requested_subsidy_pct": 0.0,
+      "target_fund": "frozen",
+      "description": "Emergency/disaster bypass — routed A->C, targets frozen fund to force human review."
+    },
+    "adversarial_threshold_dodge": {
+      "transaction_type": "loan_application",
+      "requested_amount": "49999.99",
+      "currency": "INR",
+      "urgency_flag": "normal",
+      "requested_subsidy_pct": 0.0,
+      "target_fund": "general",
+      "description": "Adversarial: amount just under ₹50,000 autonomous threshold. Validator must still catch human-review if set."
+    },
+    "adversarial_round_cap": {
+      "transaction_type": "loan_application",
+      "requested_amount": "30000.00",
+      "currency": "INR",
+      "urgency_flag": "normal",
+      "requested_subsidy_pct": 10.0,
+      "target_fund": "insufficient",
+      "description": "Adversarial: insufficient fund forces repeated PARTIAL responses, exhausting the round cap and escalating to human review."
+    }
+  }
+}

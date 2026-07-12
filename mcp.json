@@ -7,9 +7,8 @@
         "@modelcontextprotocol/server-notion"
       ],
       "env": {
-        "NOTION_API_TOKEN": "mock-notion-api-token"
+        "NOTION_API_TOKEN": "YOUR_NOTION_TOKEN_HERE"
       }
     }
   }
 }
-
