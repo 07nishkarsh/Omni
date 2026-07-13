@@ -93,13 +93,13 @@ class NotionAuditClient:
                 "TransactionID": {
                     "title": [{"text": {"content": str(ctx.transaction_id)}}]
                 },
-                # AgentsInvolved — rich text
+                # AgentsInvolved — multi_select
                 "AgentsInvolved": {
-                    "rich_text": [{"text": {"content": agents_text}}]
+                    "multi_select": [{"name": agent} for agent in summary.agents_involved]
                 },
-                # Route — select or rich text
+                # Route — select
                 "Route": {
-                    "rich_text": [{"text": {"content": summary.route}}]
+                    "select": {"name": summary.route}
                 },
                 # Outcome — select
                 "Outcome": {
@@ -112,6 +112,10 @@ class NotionAuditClient:
                 # Summary — rich text (bullet list, truncated to 2000 chars)
                 "Summary": {
                     "rich_text": [{"text": {"content": bullet_text[:2000]}}]
+                },
+                # Timestamp — date
+                "Timestamp": {
+                    "date": {"start": timestamp}
                 },
             },
         }
@@ -129,6 +133,43 @@ class NotionAuditClient:
         except Exception as exc:
             log.error("notion_audit.create_entry_failed", error=str(exc))
             raise NotionAuditError(f"Failed to write audit entry: {exc}") from exc
+
+    def create_approval_desk_entry(self, ctx: TransactionContext, summary) -> dict:
+        """Create a card on the Manager Approval Desk for escalated transactions."""
+        from app.orchestrator.history import CompressedSummary
+        assert isinstance(summary, CompressedSummary)
+
+        if self._settings.use_mock_notion:
+            log.info("notion_audit.mock.create_approval_desk_entry", transaction_id=str(ctx.transaction_id))
+            return {"_mock": True}
+
+        database_id = getattr(self._settings, "notion_approval_desk_id", "mock-desk-db")
+        trigger_display = "Subsidy Loan" if "loan" in ctx.transaction_type.value.lower() else "Emergency Payout"
+        
+        payload = {
+            "parent": {"database_id": database_id},
+            "properties": {
+                "TransactionID": {"title": [{"text": {"content": str(ctx.transaction_id)}}]},
+                "Amount": {"number": float(ctx.requested_amount)},
+                "Subject": {"rich_text": [{"text": {"content": f"{trigger_display} escalated for review."}}]},
+                "Status": {"select": {"name": "Awaiting Action"}},
+                "ConflictSummary": {"rich_text": [{"text": {"content": "\n".join(summary.bullets)[:2000]}}]}
+            }
+        }
+
+        try:
+            headers = {
+                "Authorization": f"Bearer {self._settings.notion_token}",
+                "Notion-Version": _NOTION_VERSION,
+                "Content-Type": "application/json",
+            }
+            with httpx.Client(timeout=15) as client:
+                resp = client.post(f"{_NOTION_API}/pages", json=payload, headers=headers)
+                resp.raise_for_status()
+                return resp.json()
+        except Exception as exc:
+            log.error("notion_audit.create_approval_desk_entry_failed", error=str(exc))
+            raise NotionAuditError(f"Failed to write approval desk entry: {exc}") from exc
 
     @property
     def _notion_audit_feed_id(self) -> str:

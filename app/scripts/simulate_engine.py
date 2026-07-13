@@ -100,6 +100,7 @@ async def run_simulation(
 
     # ── Compress transcript → push to Notion Audit Feed ───────────────────────
     policy_version = "unknown"
+    summary = None
     if result and result.transcript:
         try:
             compressor = TranscriptCompressor()
@@ -114,6 +115,16 @@ async def run_simulation(
     else:
         final_status = TransactionStatus.REJECTED
     transaction_store.set_status(ctx.transaction_id, final_status)
+
+    # ── Push to Manager Approval Desk if escalated ────────────────────────────
+    if final_status == TransactionStatus.ESCALATED and summary:
+        try:
+            from app.integrations.notion_audit import NotionAuditClient
+            client = NotionAuditClient()
+            client.create_approval_desk_entry(ctx, summary)
+            log.info("simulate.manager_desk_pushed", transaction_id=str(ctx.transaction_id))
+        except Exception as exc:
+            log.error("simulate.manager_desk_push_failed", error=str(exc))
 
     sim_result = SimulationResult(
         transaction_id=ctx.transaction_id,
