@@ -55,6 +55,7 @@ class SimulationResult:
 async def run_simulation(
     trigger_type: str,
     applicant_id: str,
+    amount: float | None = None,
 ) -> SimulationResult:
     """
     Execute the full production orchestrator pipeline for the given trigger.
@@ -69,7 +70,7 @@ async def run_simulation(
     Raises:
         FixtureError: if trigger_type or applicant_id are invalid.
     """
-    ctx = build_transaction_context(trigger_type, applicant_id)
+    ctx = build_transaction_context(trigger_type, applicant_id, amount)
     transaction_store.upsert(ctx)
 
     log.info(

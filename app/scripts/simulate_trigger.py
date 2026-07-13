@@ -51,6 +51,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Applicant ID from fixtures.json (e.g. APP-001).",
     )
     parser.add_argument(
+        "--amount",
+        type=float,
+        default=None,
+        help="Optional custom amount to request, overriding fixtures.json.",
+    )
+    parser.add_argument(
         "--list-applicants",
         action="store_true",
         help="List all available applicant IDs and exit.",
@@ -102,10 +108,10 @@ def _print_result(result) -> None:
         print(f"  ⚠️  Pipeline error: {result.error}\n", flush=True)
 
 
-async def _async_main(trigger_type: str, applicant_id: str) -> int:
+async def _async_main(trigger_type: str, applicant_id: str, amount: float | None = None) -> int:
     """Run the simulation. Returns exit code."""
     try:
-        result = await run_simulation(trigger_type, applicant_id)
+        result = await run_simulation(trigger_type, applicant_id, amount)
         _print_result(result)
         return 0
     except FixtureError as exc:
@@ -133,7 +139,7 @@ def main() -> None:
     if not args.applicant_id:
         parser.error("--applicant is required (use --list-applicants to see available IDs).")
 
-    exit_code = asyncio.run(_async_main(args.trigger_type, args.applicant_id))
+    exit_code = asyncio.run(_async_main(args.trigger_type, args.applicant_id, args.amount))
     sys.exit(exit_code)
 
 

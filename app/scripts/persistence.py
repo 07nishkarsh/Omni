@@ -56,6 +56,7 @@ def list_applicants() -> dict[str, dict]:
 def build_transaction_context(
     trigger_type: str,
     applicant_id: str,
+    amount: float | None = None,
 ) -> TransactionContext:
     """
     Construct a TransactionContext from fixture data.
@@ -126,7 +127,7 @@ def build_transaction_context(
         transaction_type=TransactionType(defaults["transaction_type"]),
         customer_name=applicant["name"],
         customer_email=applicant["email"],
-        requested_amount=Decimal(defaults["requested_amount"]),
+        requested_amount=Decimal(amount) if amount is not None else Decimal(defaults["requested_amount"]),
         currency=defaults.get("currency", "INR"),
         mock_credit_score=applicant.get("mock_credit_score", 700),
         mock_annual_income=Decimal(applicant.get("mock_annual_income", "50000.00")),
