@@ -32,6 +32,7 @@ router = APIRouter()
 class SimulateTriggerRequest(BaseModel):
     trigger_type: str
     applicant_id: str
+    amount: float | None = None
 
 
 class SimulateTriggerResponse(BaseModel):
@@ -69,6 +70,7 @@ async def simulate_trigger(body: SimulateTriggerRequest) -> SimulateTriggerRespo
         result = await run_simulation(
             trigger_type=body.trigger_type,
             applicant_id=body.applicant_id,
+            amount=body.amount,
         )
     except FixtureError as exc:
         raise HTTPException(
