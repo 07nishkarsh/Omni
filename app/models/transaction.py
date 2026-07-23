@@ -66,7 +66,7 @@ class TransactionContext(BaseModel):
         le=850,
         description="Synthetic credit score – not from any real credit bureau",
     )
-    mock_annual_income: Decimal = Field(
+    annual_declared_income: Decimal = Field(
         default=Decimal("50000.00"),
         gt=Decimal(0),
         description="Synthetic annual income – not verified",

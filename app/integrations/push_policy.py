@@ -43,12 +43,17 @@ blocks = [
     {
         "object": "block",
         "type": "paragraph",
-        "paragraph": {"rich_text": [{"type": "text", "text": {"content": "Clause 3: Autonomous execution is strictly limited to an explicit threshold of ₹50,000."}}]}
+        "paragraph": {"rich_text": [{"type": "text", "text": {"content": "Clause 3: Transactions under the autonomous threshold may still require human review if the requested amount is disproportionate to the applicant's declared income, because this is a subjective judgment the policy deliberately delegates to a person rather than automating."}}]}
     },
     {
         "object": "block",
         "type": "paragraph",
-        "paragraph": {"rich_text": [{"type": "text", "text": {"content": "Clause 4: ANY transaction touching a frozen or locked fund requires immediate human review, regardless of the transaction amount."}}]}
+        "paragraph": {"rich_text": [{"type": "text", "text": {"content": "Clause 4: Autonomous execution is strictly limited to an explicit threshold of ₹50,000."}}]}
+    },
+    {
+        "object": "block",
+        "type": "paragraph",
+        "paragraph": {"rich_text": [{"type": "text", "text": {"content": "Clause 5: ANY transaction touching a frozen or locked fund requires immediate human review, regardless of the transaction amount."}}]}
     },
     {
         "object": "block",

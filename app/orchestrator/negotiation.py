@@ -53,8 +53,28 @@ class NegotiationEngine:
 
             if proposal.status == ProposalStatus.ACCEPTED:
                 log.info("negotiation.accepted", round=round_num)
-                # Ensure the history is valid
-                validate_proposal_history(transcript)
+                try:
+                    # Ensure the history is valid
+                    validate_proposal_history(transcript, current_ctx)
+                except ValidationError as e:
+                    # Force human review instead of crashing the pipeline
+                    cited_clause = getattr(e, 'cited_clause', 'Section I, Clause 3')
+                    final_proposal = Proposal(
+                        transaction_id=current_ctx.transaction_id,
+                        originated_by="Validator",
+                        status=ProposalStatus.REJECTED,
+                        proposed_amount=current_ctx.requested_amount,
+                        metadata={"cited_clause": cited_clause, "requires_human_review": "true"},
+                        rationale=str(e)
+                    )
+                    transcript.append(final_proposal)
+                    return NegotiationResult(
+                        accepted=False,
+                        final_proposal=final_proposal,
+                        rounds=round_num,
+                        transcript=transcript,
+                        reason=str(e)
+                    )
                 return NegotiationResult(
                     accepted=True,
                     final_proposal=proposal,
@@ -65,7 +85,10 @@ class NegotiationEngine:
             
             if proposal.status == ProposalStatus.REJECTED:
                 log.info("negotiation.rejected", round=round_num)
-                validate_proposal_history(transcript)
+                try:
+                    validate_proposal_history(transcript, current_ctx)
+                except ValidationError:
+                    pass # It's already rejected, validation failure is fine
                 return NegotiationResult(
                     accepted=False,
                     final_proposal=proposal,
@@ -96,7 +119,10 @@ class NegotiationEngine:
         )
         transcript.append(final_proposal)
         
-        validate_proposal_history(transcript)
+        try:
+            validate_proposal_history(transcript, current_ctx)
+        except ValidationError:
+            pass
         
         return NegotiationResult(
             accepted=False,

@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Sequence
 
 from app.models.proposal import Proposal
+from app.models.transaction import TransactionContext
+from app.orchestrator.judgment import calculate_income_proportionality
 
 
 class ValidationError(Exception):
@@ -42,7 +44,7 @@ def _get_valid_clauses() -> set[str]:
     return valid_clauses
 
 
-def validate_proposal_history(proposals: Sequence[Proposal]) -> None:
+def validate_proposal_history(proposals: Sequence[Proposal], ctx: TransactionContext) -> None:
     """
     Validates a transaction history of agent proposals.
     
@@ -51,6 +53,7 @@ def validate_proposal_history(proposals: Sequence[Proposal]) -> None:
       2. No proposal may approve an amount > 50,000 autonomously.
       3. If any proposal in the history required human review, the final
          execution path (the last proposal) must also route to human review.
+      4. Income proportionality (amount/income) > 0.5 must be forced to human review.
     """
     if not proposals:
         return
@@ -93,3 +96,14 @@ def validate_proposal_history(proposals: Sequence[Proposal]) -> None:
             f"A previous proposal required human review, but the final proposal "
             f"by {final_prop.originated_by} attempted to bypass it."
         )
+
+    # Check 4: Income Proportionality Check
+    prop_result = calculate_income_proportionality(
+        float(final_prop.proposed_amount), 
+        float(ctx.annual_declared_income)
+    )
+    if prop_result.requires_human_review and not final_is_human_review:
+        # Raise ValidationError but we'll attach the cited clause so negotiation.py can use it
+        err = ValidationError(f"Income Proportionality Review Required: {prop_result.note}")
+        err.cited_clause = prop_result.cited_clause
+        raise err

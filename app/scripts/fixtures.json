@@ -4,7 +4,7 @@
       "name": "Priya Sharma",
       "email": "priya.sharma@sandbox.mockbank.example.com",
       "mock_credit_score": 760,
-      "mock_annual_income": "85000.00",
+      "annual_declared_income": "85000.00",
       "notes": "Clean applicant. No tax flags. Standard subsidy loan candidate.",
       "tags": ["clean"]
     },
@@ -12,7 +12,7 @@
       "name": "Rajan Mehta",
       "email": "rajan.mehta@sandbox.mockbank.example.com",
       "mock_credit_score": 640,
-      "mock_annual_income": "42000.00",
+      "annual_declared_income": "42000.00",
       "notes": "Flagged applicant. Unresolved 2-year tax dispute on record.",
       "tags": ["flagged"]
     },
@@ -20,7 +20,7 @@
       "name": "Aisha Verma",
       "email": "aisha.verma@sandbox.mockbank.example.com",
       "mock_credit_score": 700,
-      "mock_annual_income": "58000.00",
+      "annual_declared_income": "58000.00",
       "notes": "Flagged applicant with guarantor: Suresh Verma. Guarantor offsets risk veto.",
       "tags": ["flagged", "guarantor"],
       "guarantor": "Suresh Verma"
@@ -29,7 +29,7 @@
       "name": "Mohan Das",
       "email": "mohan.das@sandbox.mockbank.example.com",
       "mock_credit_score": 720,
-      "mock_annual_income": "70000.00",
+      "annual_declared_income": "70000.00",
       "notes": "Rural applicant. Triggers insufficient-fund scenario (≤5000 available).",
       "tags": ["insufficient"]
     },
@@ -37,9 +37,17 @@
       "name": "Kavya Nair",
       "email": "kavya.nair@sandbox.mockbank.example.com",
       "mock_credit_score": 800,
-      "mock_annual_income": "120000.00",
+      "annual_declared_income": "120000.00",
       "notes": "Emergency payout applicant. Routed A->C. Targets frozen fund to force human-review path.",
       "tags": ["clean", "emergency"]
+    },
+    "APP-006": {
+      "name": "Vikram Singh",
+      "email": "vikram.singh@sandbox.mockbank.example.com",
+      "mock_credit_score": 810,
+      "annual_declared_income": "15000.00",
+      "notes": "Clean applicant but requests 40k against 15k income (> 1.5x), triggering High ratio proportionality judgment.",
+      "tags": ["clean"]
     }
   },
   "trigger_defaults": {

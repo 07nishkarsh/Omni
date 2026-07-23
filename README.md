@@ -101,7 +101,7 @@ Follow these steps to run the simulation on a clean machine:
 5. **Start the Backend Server:**
    The database in this simulation is purely in-memory (`TransactionStore`), so no DB migration script is required; state initializes on boot.
    ```bash
-   uvicorn app:create_app --host 0.0.0.0 --port 8000 --reload
+   uvicorn app:app --host 0.0.0.0 --port 8000 --reload
    ```
 
 ## 8. Running the Demo

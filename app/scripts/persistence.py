@@ -130,7 +130,7 @@ def build_transaction_context(
         requested_amount=Decimal(amount) if amount is not None else Decimal(defaults["requested_amount"]),
         currency=defaults.get("currency", "INR"),
         mock_credit_score=applicant.get("mock_credit_score", 700),
-        mock_annual_income=Decimal(applicant.get("mock_annual_income", "50000.00")),
+        annual_declared_income=Decimal(applicant.get("annual_declared_income", "50000.00")),
         urgency_flag=defaults["urgency_flag"],
         requested_subsidy_pct=float(defaults.get("requested_subsidy_pct", 0.0)),
         notes=notes[:2000],
