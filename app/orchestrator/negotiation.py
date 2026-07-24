@@ -15,6 +15,7 @@ from uuid import uuid4
 from app.models import TransactionContext, Proposal, ProposalStatus
 from app.orchestrator.state_machine import StateMachine
 from app.orchestrator.validator import validate_proposal_history, ValidationError
+from app.services.transaction_store import transaction_store
 
 log = structlog.get_logger(__name__)
 
@@ -58,6 +59,7 @@ class NegotiationEngine:
                     validate_proposal_history(transcript, current_ctx)
                 except ValidationError as e:
                     # Force human review instead of crashing the pipeline
+                    transaction_store.add_progress(current_ctx.transaction_id, 7, "Validator — final determination", f"FAILED — {str(e)}")
                     cited_clause = getattr(e, 'cited_clause', 'Section I, Clause 3')
                     final_proposal = Proposal(
                         transaction_id=current_ctx.transaction_id,
@@ -99,6 +101,7 @@ class NegotiationEngine:
 
             if proposal.status == ProposalStatus.COUNTERED:
                 log.info("negotiation.countered", round=round_num, new_amount=proposal.proposed_amount)
+                transaction_store.add_progress(current_ctx.transaction_id, 6, "Negotiation", f"Round {round_num}: Countered to {proposal.proposed_amount}")
                 # Counter-offer: lower requested amount to match available amount (disbursement split)
                 current_ctx = current_ctx.model_copy(update={"requested_amount": proposal.proposed_amount})
                 

@@ -88,6 +88,11 @@ class TransactionContext(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     notes: str = Field(default="", max_length=2000)
     metadata: dict[str, str] = Field(default_factory=dict)
+    
+    # ── Decision Tracking ────────────────────────────────────────────────────
+    decision_type: str = Field(default="AGENT_AUTOMATED", description="'AGENT_AUTOMATED' or 'MANAGER_DECISION'")
+    decision_maker: str | None = Field(default=None, description="Who made the decision (e.g. 'Manager')")
+    decision_reason: str | None = Field(default=None, description="Reason for decision, required for rejected manager decisions")
 
 
 class AgentRoutingDecision(BaseModel):

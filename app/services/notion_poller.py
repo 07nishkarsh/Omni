@@ -96,11 +96,17 @@ def _live_fetch_approval_desk_changes(settings) -> list[dict]:
             status_prop = props.get("Status", {})
             status_val = (status_prop.get("select") or {}).get("name", "")
 
+            # Extract ManagerNote
+            note_prop = props.get("ManagerNote", {})
+            note_rich_text = note_prop.get("rich_text", [])
+            manager_note = note_rich_text[0].get("plain_text", "").strip() if note_rich_text else None
+
             if txn_id_str and status_val in ("Approved", "Rejected"):
                 changes.append({
                     "transaction_id": txn_id_str,
                     "new_status": status_val,
                     "notion_page_id": page.get("id", ""),
+                    "manager_note": manager_note,
                 })
         return changes
 
@@ -134,9 +140,10 @@ async def _poll_once(settings) -> None:
 
         new_status = change["new_status"]
         notion_page_id = change.get("notion_page_id", "")
+        manager_note = change.get("manager_note")
 
         # Delegate to the same handler used by the push webhook.
-        from app.routes.webhooks import _handle_approved, _handle_rejected  # local import to avoid circular
+        from app.routes.webhooks import _handle_approved, _handle_rejected, NotionStatusChangePayload  # local import to avoid circular
 
         ctx = transaction_store.get(txn_id)
         if ctx is None:
@@ -147,11 +154,19 @@ async def _poll_once(settings) -> None:
             log.debug("notion_poller.already_resolved", transaction_id=str(txn_id))
             continue
 
+        payload = NotionStatusChangePayload(
+            transaction_id=txn_id,
+            new_status=new_status,
+            notion_page_id=notion_page_id,
+            manager_note=manager_note,
+            actor="notion_poller"
+        )
+
         log.info("notion_poller.processing", transaction_id=str(txn_id), new_status=new_status)
         if new_status == "Approved":
-            await _handle_approved(txn_id, ctx, actor="notion_poller")
+            await _handle_approved(payload, ctx)
         elif new_status == "Rejected":
-            _handle_rejected(txn_id, actor="notion_poller")
+            _handle_rejected(payload)
 
 
 async def _polling_loop(interval: int, settings) -> None:

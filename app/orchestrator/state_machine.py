@@ -14,6 +14,7 @@ from app.agents.llm_client import LLMUnavailableError
 from app.agents.agent_a_loans import process_loan_application, AgentRoutingError
 from app.agents.agent_b_risk import assess_risk, AgentBError
 from app.agents.agent_c_treasury import evaluate_treasury, AgentCError
+from app.services.transaction_store import transaction_store
 
 log = structlog.get_logger(__name__)
 
@@ -42,6 +43,9 @@ class StateMachine:
             routing_decision = process_loan_application(self._ctx)
             route = routing_decision.route
             log.info("state_machine.agent_a", route=route)
+            transaction_store.add_progress(
+                self._ctx.transaction_id, 2, "Agent A — routing decision", f"Routed: {route}"
+            )
             
             # 2. Agent B: Risk (Only if in route)
             requires_human_review = False
@@ -53,6 +57,9 @@ class StateMachine:
                 b_clause = risk_response.citedClause
                 
                 if risk_response.status == "RISK_VETO":
+                    transaction_store.add_progress(
+                        self._ctx.transaction_id, 3, "Agent B — compliance check", "FAILED — Vetoed"
+                    )
                     return Proposal(
                         transaction_id=self._ctx.transaction_id,
                         originated_by="Agent B",
@@ -61,8 +68,15 @@ class StateMachine:
                         metadata={"cited_clause": b_clause, "requires_human_review": "true"},
                         rationale=f"Risk Veto: {risk_response.notes}"
                     )
+                else:
+                    transaction_store.add_progress(
+                        self._ctx.transaction_id, 3, "Agent B — compliance check", "PASSED"
+                    )
             else:
                 log.info("state_machine.agent_b_skipped", route=route)
+                transaction_store.add_progress(
+                    self._ctx.transaction_id, 3, "Agent B — compliance check", "Skipped (Fast Track)"
+                )
 
             # 3. Agent C: Treasury
             treasury_response = evaluate_treasury(self._ctx, route)
@@ -71,6 +85,13 @@ class StateMachine:
             
             if treasury_response.requiresHumanReview:
                 requires_human_review = True
+
+            if treasury_response.status == "TREASURY_REJECT":
+                transaction_store.add_progress(self._ctx.transaction_id, 4, "Agent C — treasury check", "FAILED — Insufficient funds")
+            elif treasury_response.status == "PARTIAL":
+                transaction_store.add_progress(self._ctx.transaction_id, 4, "Agent C — treasury check", "COUNTERED — Partial funds")
+            else:
+                transaction_store.add_progress(self._ctx.transaction_id, 4, "Agent C — treasury check", "PASSED")
 
             # Convert to Proposal
             if treasury_response.status == "TREASURY_REJECT":

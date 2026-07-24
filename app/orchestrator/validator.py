@@ -102,8 +102,15 @@ def validate_proposal_history(proposals: Sequence[Proposal], ctx: TransactionCon
         float(final_prop.proposed_amount), 
         float(ctx.annual_declared_income)
     )
+    
+    from app.services.transaction_store import transaction_store
     if prop_result.requires_human_review and not final_is_human_review:
+        transaction_store.add_progress(ctx.transaction_id, 5, "Income Proportionality Score", f"FAILED — {prop_result.note}")
         # Raise ValidationError but we'll attach the cited clause so negotiation.py can use it
         err = ValidationError(f"Income Proportionality Review Required: {prop_result.note}")
         err.cited_clause = prop_result.cited_clause
         raise err
+    else:
+        transaction_store.add_progress(ctx.transaction_id, 5, "Income Proportionality Score", f"PASSED — {prop_result.band} band")
+
+    transaction_store.add_progress(ctx.transaction_id, 7, "Validator — final determination", "PASSED")

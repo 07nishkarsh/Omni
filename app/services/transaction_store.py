@@ -30,6 +30,7 @@ class TransactionStore:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._data: dict[UUID, TransactionContext] = {}
+        self._progress: dict[UUID, list[dict]] = {}
 
     # ── Writes ────────────────────────────────────────────────────────────────
 
@@ -51,11 +52,52 @@ class TransactionStore:
             log.info("transaction_store.status_changed", transaction_id=str(transaction_id), new_status=new_status)
             return updated
 
+    def update_decision(self, transaction_id: UUID, decision_type: str, decision_maker: str | None = None, decision_reason: str | None = None) -> TransactionContext | None:
+        """
+        Update the decision_type, decision_maker, and decision_reason fields of a transaction.
+        """
+        with self._lock:
+            ctx = self._data.get(transaction_id)
+            if ctx is None:
+                return None
+            updated = ctx.model_copy(update={
+                "decision_type": decision_type,
+                "decision_maker": decision_maker,
+                "decision_reason": decision_reason
+            })
+            self._data[transaction_id] = updated
+            log.info("transaction_store.decision_updated", transaction_id=str(transaction_id), decision_type=decision_type)
+            return updated
+
+    def add_progress(self, transaction_id: UUID, step_num: int, name: str, detail: str) -> None:
+        """Record a step in the transaction's execution progress."""
+        with self._lock:
+            if transaction_id not in self._progress:
+                self._progress[transaction_id] = []
+            
+            # Prevent duplicate step numbers by filtering old ones out
+            self._progress[transaction_id] = [
+                s for s in self._progress[transaction_id] if s["step_num"] != step_num
+            ]
+            self._progress[transaction_id].append({
+                "step_num": step_num,
+                "name": name,
+                "detail": detail
+            })
+            
+            # Sort just in case they arrive out of order
+            self._progress[transaction_id].sort(key=lambda x: x["step_num"])
+
     # ── Reads ─────────────────────────────────────────────────────────────────
 
     def get(self, transaction_id: UUID) -> TransactionContext | None:
         with self._lock:
             return self._data.get(transaction_id)
+            
+    def get_progress(self, transaction_id: UUID) -> list[dict]:
+        with self._lock:
+            # Return a copy to avoid mutation
+            return list(self._progress.get(transaction_id, []))
 
     def all(self) -> list[TransactionContext]:
         with self._lock:

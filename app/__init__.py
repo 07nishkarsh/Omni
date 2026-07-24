@@ -12,9 +12,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routes import health, orchestration, webhooks
+from app.routes import health, orchestration, webhooks, applications
 from app.routes import simulate as simulate_route
 from app.services.notion_poller import start_poller, stop_poller
+from fastapi.staticfiles import StaticFiles
 
 settings = get_settings()
 
@@ -52,6 +53,12 @@ def create_app() -> FastAPI:
     app.include_router(orchestration.router, prefix="/api/v1", tags=["Orchestration"])
     app.include_router(webhooks.router, tags=["Webhooks"])
     app.include_router(simulate_route.router, prefix="/api/v1", tags=["Simulation"])
+    app.include_router(applications.router, prefix="/api/v1", tags=["Dashboard"])
+
+    # Mount static files for the dashboard
+    import os
+    os.makedirs("app/static", exist_ok=True)
+    app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
 
     return app
 

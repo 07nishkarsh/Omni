@@ -57,6 +57,7 @@ class NotionStatusChangePayload(BaseModel):
     transaction_id: UUID
     new_status: str          # "Approved" | "Rejected"
     notion_page_id: str = ""
+    manager_note: str | None = None
     actor: str = "notion_webhook"
 
 
@@ -141,10 +142,10 @@ async def notion_status_change(
 
     # ── 3. Route on new_status ────────────────────────────────────────────────
     if new_status == "Approved":
-        return await _handle_approved(txn_id, ctx, actor)
+        return await _handle_approved(payload, ctx)
 
     if new_status == "Rejected":
-        return _handle_rejected(txn_id, actor)
+        return _handle_rejected(payload)
 
     # Unknown status value — log it but don't crash.
     log.warning("webhook.unknown_status", new_status=new_status, transaction_id=str(txn_id))
@@ -157,18 +158,33 @@ async def notion_status_change(
 
 # ── Path handlers ─────────────────────────────────────────────────────────────
 
-async def _handle_approved(txn_id: UUID, ctx, actor: str) -> WebhookResponse:
+async def _handle_approved(payload: NotionStatusChangePayload, ctx) -> WebhookResponse:
     """Resume paused transaction and execute downstream side-effects."""
+    txn_id = payload.transaction_id
+    actor = payload.actor
     log.info("webhook.approved", transaction_id=str(txn_id))
+
+    # Update decision properties
+    transaction_store.update_decision(
+        transaction_id=txn_id,
+        decision_type="MANAGER_DECISION",
+        decision_maker="Manager",
+        decision_reason=payload.manager_note
+    )
 
     # Mark as APPROVED first so any concurrent re-delivery is a no-op.
     updated_ctx = transaction_store.set_status(txn_id, TransactionStatus.APPROVED)
+
+    # Regenerate verdict text and update step 8 progress
+    from app.orchestrator.verdict import generate_verdict_text
+    verdict_text = generate_verdict_text(updated_ctx)
+    transaction_store.add_progress(txn_id, 8, "Verdict issued", verdict_text)
 
     audit_feed.record(
         transaction_id=txn_id,
         event_type=AuditEventType.APPROVED,
         actor=actor,
-        reason="Manager approved via Notion.",
+        reason=f"Manager approved via Notion. Note: {payload.manager_note}" if payload.manager_note else "Manager approved via Notion.",
     )
 
     # Execute downstream tools (Gmail/Slack/ledger).
@@ -186,20 +202,42 @@ async def _handle_approved(txn_id: UUID, ctx, actor: str) -> WebhookResponse:
     )
 
 
-def _handle_rejected(txn_id: UUID, actor: str) -> WebhookResponse:
+def _handle_rejected(payload: NotionStatusChangePayload) -> WebhookResponse:
     """
     Close the transaction with no downstream execution.
     ONLY writes an audit event — no Gmail, no Slack, no ledger.
     """
+    txn_id = payload.transaction_id
+    actor = payload.actor
     log.info("webhook.rejected", transaction_id=str(txn_id))
 
-    transaction_store.set_status(txn_id, TransactionStatus.REJECTED)
+    # Rejecting requires a note
+    if not payload.manager_note:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="A rejection must include a manager_note."
+        )
+
+    # Update decision properties
+    transaction_store.update_decision(
+        transaction_id=txn_id,
+        decision_type="MANAGER_DECISION",
+        decision_maker="Manager",
+        decision_reason=payload.manager_note
+    )
+
+    updated_ctx = transaction_store.set_status(txn_id, TransactionStatus.REJECTED)
+
+    # Regenerate verdict text and update step 8 progress
+    from app.orchestrator.verdict import generate_verdict_text
+    verdict_text = generate_verdict_text(updated_ctx)
+    transaction_store.add_progress(txn_id, 8, "Verdict issued", verdict_text)
 
     audit_feed.record(
         transaction_id=txn_id,
         event_type=AuditEventType.REJECTED,
         actor=actor,
-        reason="Manager rejected via Notion.",
+        reason=f"Manager rejected via Notion. Reason: {payload.manager_note}",
     )
 
     # ⚠️  Intentionally no downstream calls here.

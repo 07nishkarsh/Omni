@@ -38,6 +38,7 @@ import structlog
 from app.agents.llm_client import call_llm, LLMUnavailableError
 from app.models.proposal import Proposal
 from app.models.transaction import TransactionContext
+from app.orchestrator.verdict import generate_verdict_text
 
 log = structlog.get_logger(__name__)
 
@@ -211,6 +212,18 @@ class TranscriptCompressor:
                 f"• Route: {route}.",
                 f"• Outcome: {outcome} (summary unavailable — LLM offline).",
             ]
+            
+        # Append deterministic verdict text
+        # Extract all cited clauses from the transcript to pass to the generator
+        clauses = []
+        for p in transcript:
+            clause = p.metadata.get("cited_clause")
+            if clause and clause not in clauses:
+                clauses.append(clause)
+        clauses_str = ", ".join(clauses) if clauses else "none"
+        
+        verdict_text = generate_verdict_text(ctx, clauses=clauses_str)
+        bullets.append(f"• Verdict: {verdict_text}")
 
         summary = CompressedSummary(
             transaction_id=ctx.transaction_id,

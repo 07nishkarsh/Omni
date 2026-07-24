@@ -29,6 +29,7 @@ import structlog
 from app.models.transaction import TransactionContext, TransactionStatus
 from app.orchestrator.negotiation import NegotiationEngine, NegotiationResult
 from app.orchestrator.history import TranscriptCompressor
+from app.orchestrator.verdict import generate_verdict_text
 from app.scripts.persistence import build_transaction_context, FixtureError
 from app.services.transaction_store import transaction_store
 
@@ -116,6 +117,8 @@ async def run_simulation(
     else:
         final_status = TransactionStatus.REJECTED
     transaction_store.set_status(ctx.transaction_id, final_status)
+    verdict_text = generate_verdict_text(ctx)
+    transaction_store.add_progress(ctx.transaction_id, 8, "Verdict issued", verdict_text)
 
     # ── Push to Manager Approval Desk if escalated ────────────────────────────
     if final_status == TransactionStatus.ESCALATED and summary:
@@ -124,8 +127,17 @@ async def run_simulation(
             client = NotionAuditClient()
             client.create_approval_desk_entry(ctx, summary)
             log.info("simulate.manager_desk_pushed", transaction_id=str(ctx.transaction_id))
+            transaction_store.add_progress(ctx.transaction_id, 9, "Manager decision", "Awaiting human review")
         except Exception as exc:
             log.error("simulate.manager_desk_push_failed", error=str(exc))
+            
+    # Always light up step 10 at the end (unless it completely crashed before)
+    if final_status == TransactionStatus.APPROVED:
+        transaction_store.add_progress(ctx.transaction_id, 10, "Credit/disbursement confirmed", "Funds released")
+    elif final_status == TransactionStatus.REJECTED:
+        transaction_store.add_progress(ctx.transaction_id, 10, "Credit/disbursement confirmed", "Disbursement halted")
+    elif final_status == TransactionStatus.ESCALATED:
+        transaction_store.add_progress(ctx.transaction_id, 10, "Credit/disbursement confirmed", "Pending manager approval")
 
     sim_result = SimulationResult(
         transaction_id=ctx.transaction_id,
